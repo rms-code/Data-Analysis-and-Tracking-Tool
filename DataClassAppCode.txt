@@ -1,0 +1,718 @@
+#Data Analysis + Data Classification + Data Discovery
+$formDataAnalysisTool_Load={
+}
+
+$exitToolStripMenuItem_Click={
+	$formDataAnalysisTool.Close()
+}
+
+$aboutToolStripMenuItem_Click={
+	[System.Windows.Forms.MessageBox]::Show("DAT by RMS", "About");
+}
+
+[System.Windows.Forms.MessageBox]::Show("Please configure settings", "START-UP");
+
+function Update-ComboBox
+{	
+	param
+	(
+		[Parameter(Mandatory = $true)]
+		[ValidateNotNull()]
+		[System.Windows.Forms.ToolStripComboBox]
+		$ToolStripComboBox,
+		[Parameter(Mandatory = $true)]
+		[ValidateNotNull()]
+		$Items,
+		[switch]
+		$Append
+	)
+	
+	if (-not $Append)
+	{
+		$ToolStripComboBox.Items.Clear()
+	}
+	
+	if ($Items -is [Object[]])
+	{
+		$ToolStripComboBox.Items.AddRange($Items)
+	}
+	elseif ($Items -is [Array])
+	{
+		$ToolStripComboBox.BeginUpdate()
+		foreach ($obj in $Items)
+		{
+			$ToolStripComboBox.Items.Add($obj)
+		}
+		$ToolStripComboBox.EndUpdate()
+	}
+	else
+	{
+		$ToolStripComboBox.Items.Add($Items)
+	}
+}
+
+function Update-ListBox
+{
+	param
+	(
+		[Parameter(Mandatory = $true)]
+		[ValidateNotNull()]
+		[System.Windows.Forms.ListBox]
+		$ListBox,
+		[Parameter(Mandatory = $true)]
+		[ValidateNotNull()]
+		$Items,
+		[Parameter(Mandatory = $false)]
+		[string]
+		$DisplayMember,
+		[switch]
+		$Append
+	)
+	
+	if (-not $Append)
+	{
+		$listBox.Items.Clear()
+	}
+	
+	if ($Items -is [System.Windows.Forms.ListBox+ObjectCollection])
+	{
+		$listBox.Items.AddRange($Items)
+	}
+	elseif ($Items -is [Array])
+	{
+		$listBox.BeginUpdate()
+		foreach ($obj in $Items)
+		{
+			$listBox.Items.Add($obj)
+		}
+		$listBox.EndUpdate()
+	}
+	else
+	{
+		$listBox.Items.Add($Items)
+	}
+	
+	$listBox.DisplayMember = $DisplayMember
+}
+
+function Load-ListBox
+{
+	Param (
+		[ValidateNotNull()]
+		[Parameter(Mandatory = $true)]
+		[System.Windows.Forms.ListBox]$ListBox,
+		[ValidateNotNull()]
+		[Parameter(Mandatory = $true)]
+		$Items,
+		[Parameter(Mandatory = $false)]
+		[string]$DisplayMember,
+		[switch]$Append
+	)
+	
+	if (-not $Append)
+	{
+		$listBox.Items.Clear()
+	}
+	
+	if ($Items -is [System.Windows.Forms.ListBox+ObjectCollection])
+	{
+		$listBox.Items.AddRange($Items)
+	}
+	elseif ($Items -is [Array])
+	{
+		$listBox.BeginUpdate()
+		foreach ($obj in $Items)
+		{
+			$listBox.Items.Add($obj)
+		}
+		$listBox.EndUpdate()
+	}
+	else
+	{
+		$listBox.Items.Add($Items)
+	}
+	
+	$listBox.DisplayMember = $DisplayMember
+}
+
+$buttonExportDriveScanCSV_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldsel = $checkedlistbox1.CheckedItems
+	$txtbx = $textbox1.Text
+	$dset = $textbox3.Text
+	
+	foreach ($folder in $foldsel)
+	{
+		try
+		{
+			$ary1 = @()
+			gci $txtbx\$folder -Recurse | ? { $_.PSIsContainer -eq $False } | % {
+				$obj = New-Object PSObject
+				$obj | Add-Member NoteProperty Directory $_.DirectoryName
+				$obj | Add-Member NoteProperty Name $_.Name
+				$obj | Add-Member NoteProperty CreationTime $_.CreationTime
+				$obj | Add-Member NoteProperty LastWriteTime $_.LastWriteTime
+				$obj | Add-Member NoteProperty Owner ((Get-ACL $_.FullName).Owner -replace "$dset\\", "" -replace "BUILTIN\\", "")
+				$user = ((Get-ACL $_.FullName).Owner -replace "$dset\\", "" -replace "BUILTIN\\", "")
+				if (get-aduser -filter { SamAccountName -eq $user }) { $obj | Add-Member NoteProperty AD-User "yes" }
+				else { $obj | Add-Member NoteProperty AD-User "no" }
+				if (Get-ADGroup -Filter { name -eq $user }) { $obj | Add-Member NoteProperty AD-Group "yes" }
+				else { $obj | Add-Member NoteProperty AD-Group "no"}
+				$now = [datetime]::Now
+				$obj | Add-Member NoteProperty Age ($now.Subtract($_.LastWriteTime).Days)
+				$ary1 += $obj
+			}
+			$ary1 | Export-CSV -notypeinformation $folder".csv"
+		}
+		catch
+		{
+			[System.Windows.Forms.MessageBox]::Show("Error in exporting data", "Error");
+		}
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonScanDrive_Click = {
+	$dirlist = $textbox1.Text
+	try
+	{
+		Load-ListBox -ListBox $checkedlistbox1 (gci $dirlist)
+	}
+	catch
+	{
+		[System.Windows.Forms.MessageBox]::Show("Invalid Drive Letter", "Error");
+	}
+}
+$buttonClearAll_Click={
+	$textbox1.Text = $null
+	$textbox2.Text = $null
+	$checkedlistbox1.Items.Clear()
+}
+
+$buttonScanServer_Click={
+	$dirlist = $textbox2.Text
+	try
+	{
+		Load-ListBox -ListBox $checkedlistbox1 ((Get-WmiObject -Class Win32_Share -ComputerName $dirlist).Name)
+	}
+	catch
+	{
+		[System.Windows.Forms.MessageBox]::Show("Invalid Server or Permissions", "Error");
+	}
+}
+
+$richtextbox1_TextChanged={
+	
+}
+
+$buttonScanSingle_Click={
+	$s = $textbox4.Text
+	$s1 = net view $s | Select-Object -Skip 7
+	$s2 = $s1 -replace "Disk", "" -replace "The command completed successfully.", ""
+	$output = $s2 -ne ''
+	
+	foreach ($line in $output)
+	{
+		try
+		{
+			$sa = $s+$line|fl|Out-String
+			$richtextbox1.AppendText($sa)
+		}
+		catch
+		{
+			[System.Windows.Forms.MessageBox]::Show("Error", "Error");
+		}
+	}
+}
+
+$buttonGetAD_Click = {
+	$progressbaroverlay1.Visible = $true
+	try
+	{
+		Load-ListBox -ListBox $checkedlistbox2 ((Get-ADOrganizationalUnit -Filter *).DistinguishedName | sort -Descending)
+	}
+	catch
+	{
+		[System.Windows.Forms.MessageBox]::Show("Error, Check Permissions to AD", "Error");
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$checkedlistbox2_SelectedIndexChanged={
+}
+
+$labelSettingsMenu_Click={
+	
+}
+
+$buttonScanSelection_Click = {
+	$progressbaroverlay1.Visible = $true
+	$s = $checkedlistbox2.CheckedItems
+	foreach ($serv in $s)
+	{
+		$d = (Get-ADComputer -Filter * -SearchBase $serv).Name
+		foreach ($cpu in $d)
+		{
+			$sa = net view $cpu
+			$sa1 = $sa | Select-Object -Skip 7 | Out-String
+			$sa2 = $sa1 -replace "The command completed successfully.", ""
+			$richtextbox1.AppendText("`n"+$cpu+"`n"+$sa2)
+		}
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$button2_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldsel = $checkedlistbox1.CheckedItems
+	$txtbx = $textbox2.Text
+	$dset = $textbox3.Text
+	
+	foreach ($folder in $foldsel)
+	{
+		try
+		{
+			$ary1 = @()
+			gci \\$txtbx\$folder -Recurse | ? { $_.PSIsContainer -eq $False } | % {
+				$obj = New-Object PSObject
+				$obj | Add-Member NoteProperty Directory $_.DirectoryName
+				$obj | Add-Member NoteProperty Name $_.Name
+				$obj | Add-Member NoteProperty CreationTime $_.CreationTime
+				$obj | Add-Member NoteProperty LastWriteTime $_.LastWriteTime
+				$obj | Add-Member NoteProperty Owner ((Get-ACL $_.FullName).Owner -replace "$dset\\", "" -replace "BUILTIN\\", "")
+				$user = ((Get-ACL $_.FullName).Owner -replace "$dset\\", "" -replace "BUILTIN\\", "")
+				if (get-aduser -filter { SamAccountName -eq $user }) { $obj | Add-Member NoteProperty AD-User "yes" }
+				else { $obj | Add-Member NoteProperty AD-User "no" }
+				if (Get-ADGroup -Filter { name -eq $user }) { $obj | Add-Member NoteProperty AD-Group "yes" }
+				else { $obj | Add-Member NoteProperty AD-Group "no" }
+				$now = [datetime]::Now
+				$obj | Add-Member NoteProperty Age ($now.Subtract($_.LastWriteTime).Days)
+				$ary1 += $obj
+			}
+			$ary1 | Export-CSV -notypeinformation $folder".csv"
+		}
+		catch
+		{
+			[System.Windows.Forms.MessageBox]::Show("Error in exporting data", "Error");
+		}
+	}
+	$progressbaroverlay1.Visible = $false
+}
+$button1_Click={
+	$textbox4.Text = $null
+	$richtextbox1.Text = $null
+	$checkedlistbox2.Items.Clear()
+}
+
+$buttonCopyToClipboard_Click={
+	[System.Windows.Forms.Clipboard]::SetText($richtextbox1.Text)
+	
+}
+
+$buttonScanDriveUNC_Click = {
+	$progressbaroverlay1.Visible = $true
+	$dirlist = $textbox5.Text
+	try
+	{
+		Load-ListBox -ListBox $checkedlistbox3 (gci $dirlist)
+	}
+	catch
+	{
+		[System.Windows.Forms.MessageBox]::Show("Invalid Drive Letter", "Error");
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonScanInsideSelectedCl_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldselect= $checkedlistbox3.CheckedItems
+	$txtbx = $textbox5.Text
+
+	foreach ($fol in $foldselect)
+	{
+		$path = (gci $txtbx\$fol -directory).FullName
+		foreach ($line in $path)
+		{
+			$a = get-acl $line | select-object @{ n = "Path"; e = { $_.pschildname } }, @{ n = "Classification"; e = { $_.accesstostring } } | where{ $_.classification -like "*Confidential*" } | Out-String
+			$richtextbox2.AppendText($a)
+		}
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonScanRootSelectedClas_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldselect = $checkedlistbox3.CheckedItems
+	$txtbx = $textbox5.Text
+	
+	foreach ($fol in $foldselect)
+	{
+			$a = get-acl $txtbx\$fol | select-object @{ n = "Path"; e = { $_.pschildname } }, @{ n = "Classification"; e = { $_.accesstostring } } | where{ $_.classification -like "*Confidential*" } | fl | Out-String
+			$richtextbox2.AppendText($a)
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonScanInsideSelectedFU_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldselect = $checkedlistbox3.CheckedItems
+	$txtbx = $textbox5.Text
+	
+	foreach ($fol in $foldselect)
+	{
+		$path = (gci $txtbx\$fol -directory).FullName
+		foreach ($line in $path)
+		{
+			$a = get-acl $line | select-object @{ n = "Path"; e = { $_.pschildname } }, @{ n = "Classification"; e = { $_.accesstostring } } | fl | Out-String
+			$richtextbox2.AppendText($a)
+		}
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonScanRootSelectedFULL_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldselect = $checkedlistbox3.CheckedItems
+	$txtbx = $textbox5.Text
+	
+	foreach ($fol in $foldselect)
+	{
+		$a = get-acl $txtbx\$fol | select-object @{ n = "Path"; e = { $_.pschildname } }, @{ n = "Classification"; e = { $_.accesstostring } } | fl | Out-String
+		$richtextbox2.AppendText($a)
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonExportInsideSelected_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldselect = $checkedlistbox3.CheckedItems
+	$txtbx = $textbox5.Text
+	$dset = $textbox3.Text
+	
+	
+	$folder = "$txtbx$foldselect"
+
+	foreach ($fol in $foldselect)
+	{
+		$folders = (gci -Path $txtbx\$fol)
+		foreach ($folder in $folders)
+		{
+			$PSPath = (Convert-Path $folder.pspath)
+			
+			$acl = Get-Acl -Path $PSPath
+			foreach ($access in $acl.access)
+			{
+				foreach ($value in $access.identityreference.value)
+				{
+					foreach ($d in $value)
+					{
+						$a = $d -replace "$dset\\", ""
+						$e = if (get-aduser -filter { SamAccountName -eq $a }) { }
+						else { Write-Output "User Doesn't Exist" }
+						$f = if (Get-ADGroup -Filter { name -eq $a }) { }
+						else { Write-Output "Group Doesn't Exist" }
+						$g = if (Get-Acl $PSPath | where{ $_.access.isinherited -eq $true }) { Write-Output "Inherited" }
+						else { Write-Output "Not Inherited" }
+						$list = ("$PSPath, $value, $e, $f, $g")
+						$list | ft | Out-File -Append directoryINSIDEFULLscan.txt
+					}
+				}
+			}
+		}
+		$end = "EoF"
+		$end | Out-File -Append directoryINSIDEFULLscan.txt
+	}
+	if ($checkboxdisoption1.Checked)
+	{
+		Set-Content -Path ".\directoryINSIDEFULLscan.txt" -Value (Get-Content -Path ".\directoryINSIDEFULLscan.txt")
+	}
+	else
+	{
+		Set-Content -Path ".\directoryINSIDEFULLscan.txt" -Value (Get-Content -Path ".\directoryINSIDEFULLscan.txt" | select-string -pattern '(NT AUTHORITY)|(BUILTIN)|(CREATOR)|(SYSTEM)' -notmatch)
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonExportRootSelectedFU_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldselect = $checkedlistbox3.CheckedItems
+	$txtbx = $textbox5.Text
+	$dset = $textbox3.Text
+	
+	$folder = "$txtbx$foldselect"
+
+	foreach ($fol in $foldselect)
+	{
+		$folder = "$txtbx$fol"
+		$acl = Get-Acl $folder
+		$aclown = (get-acl $folder).owner
+		foreach ($access in $acl.access)
+		{
+			foreach ($value in $access.identityreference.value)
+			{
+				foreach ($d in $value)
+				{
+					$a = $d -replace "$dset\\", ""
+					$e = if (get-aduser -filter { SamAccountName -eq $a }) { }
+					else { Write-Output "User Doesn't Exist" }
+					$f = if (Get-ADGroup -Filter { name -eq $a }) { }
+					else { Write-Output "Group Doesn't Exist" }
+					$g = if ($acl | where{ $_.access.isinherited -eq $true }) { Write-Output "Inherited" }
+					else { Write-Output "Not Inherited" }
+					$h = "owner: $aclown"
+					$list = ("$folder, $value, $e, $f, $g, $h")
+					$list | ft | Out-File -Append directoryROOTscan.txt
+				}
+			}
+		}
+		$end = "EoF"
+		$end | Out-File -Append directoryROOTscan.txt
+	}
+	if ($checkboxdisoption1.Checked)
+	{
+		Set-Content -Path ".\directoryROOTscan.txt" -Value (Get-Content -Path ".\directoryROOTscan.txt")
+	}
+	else
+	{
+		Set-Content -Path ".\directoryROOTscan.txt" -Value (Get-Content -Path ".\directoryROOTscan.txt" | select-string -pattern '(NT AUTHORITY)|(BUILTIN)|(CREATOR)|(SYSTEM)' -notmatch)
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$button3_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldselect = $checkedlistbox3.CheckedItems
+	$txtbx = $textbox5.Text
+	$dset = $textbox3.Text
+	
+	$folder = "$txtbx$foldselect"
+	
+	foreach ($fol in $foldselect)
+	{
+		$folders = (gci -Path $txtbx\$fol)
+		foreach ($folder in $folders)
+		{
+			$PSPath = (Convert-Path $folder.pspath)
+			
+			$acl = Get-Acl -Path $PSPath
+			foreach ($access in $acl.access)
+			{
+				foreach ($value in $access.identityreference.value)
+				{
+					foreach ($d in $value)
+					{
+						$a = $d -replace "$dset\\", ""
+						$e = if (get-aduser -filter { SamAccountName -eq $a }) { }
+						else { Write-Output "User Doesn't Exist" }
+						$f = if (Get-ADGroup -Filter { name -eq $a }) { }
+						else { Write-Output "Group Doesn't Exist" }
+						$g = if (Get-Acl $PSPath | where{ $_.access.isinherited -eq $true }) { Write-Output "Inherited" }
+						else { Write-Output "Not Inherited" }
+						$list = ("$PSPath, $value, $e, $f, $g")
+						$list | where{ $_ -like "*Confidential*" -or $_ -like "*Top Secret*" -or $_ -like "*Private*" } | ft | Out-File -Append directoryINSIDECLASSscan.txt
+					}
+				}
+			}
+		}
+		$end = "EoF"
+		$end | Out-File -Append directoryINSIDECLASSscan.txt
+	}
+	if ($checkboxdisoption1.Checked)
+	{
+		Set-Content -Path ".\directoryINSIDECLASSscan.txt" -Value (Get-Content -Path ".\directoryINSIDECLASSscan.txt")
+	}
+	else
+	{
+		Set-Content -Path ".\directoryINSIDECLASSscan.txt" -Value (Get-Content -Path ".\directoryINSIDECLASSscan.txt" | select-string -pattern '(NT AUTHORITY)|(BUILTIN)|(CREATOR)|(SYSTEM)' -notmatch)
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonExportRootSelectedCl_Click = {
+	$progressbaroverlay1.Visible = $true
+	$foldselect = $checkedlistbox3.CheckedItems
+	$txtbx = $textbox5.Text
+	$dset = $textbox3.Text
+	
+	$folder = "$txtbx$foldselect"
+	
+	foreach ($fol in $foldselect)
+	{
+		$folder = "$txtbx$fol"
+		$acl = Get-Acl $folder
+		foreach ($access in $acl.access)
+		{
+			foreach ($value in $access.identityreference.value)
+			{
+				foreach ($d in $value)
+				{
+					$a = $d -replace "$dset\\", ""
+					$e = if (get-aduser -filter { SamAccountName -eq $a }) { }
+					else { Write-Output "User Doesn't Exist" }
+					$f = if (Get-ADGroup -Filter { name -eq $a }) { }
+					else { Write-Output "Group Doesn't Exist" }
+					$g = if ($acl | where{ $_.access.isinherited -eq $true }) { Write-Output "Inherited" }
+					else { "Not Inherited" }
+					$list = ("$folder, $value, $e, $f, $g")
+					$list | where{ $_ -like "*Confidential*" -or $_ -like "*Top Secret*" -or $_ -like "*Private*" } | ft | Out-File -Append directoryROOTCLASSscan.txt
+				}
+			}
+		}
+		$end = "EoF"
+		$end | Out-File -Append directoryROOTCLASSscan.txt
+	}
+	if ($checkboxdisoption1.Checked)
+	{
+		Set-Content -Path ".\directoryROOTCLASSscan.txt" -Value (Get-Content -Path ".\directoryROOTCLASSscan.txt")
+	}
+	else
+	{
+		Set-Content -Path ".\directoryROOTCLASSscan.txt" -Value (Get-Content -Path ".\directoryROOTCLASSscan.txt" | select-string -pattern '(NT AUTHORITY)|(BUILTIN)|(CREATOR)|(SYSTEM)' -notmatch)
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonClear_Click={
+	$textbox5.Text = $null
+	$richtextbox2.Text = $null
+	$checkedlistbox3.Items.Clear()
+}
+
+$buttonSelectAll_Click={
+	for ($i = 0; $i -lt $checkedlistbox3.Items.Count; $i++)
+	{
+		$checkedlistbox3.SetItemChecked($i, $true);
+	}
+}
+
+$button4_Click={
+	for ($i = 0; $i -lt $checkedlistbox1.Items.Count; $i++)
+	{
+		$checkedlistbox1.SetItemChecked($i, $true);
+	}
+}
+$buttonScanUNC_Click={
+	$progressbaroverlay1.Visible = $true
+	$dirlist = $textbox5.Text
+	try
+	{
+		Load-ListBox -ListBox $checkedlistbox3 (gci $dirlist)
+	}
+	catch
+	{
+		[System.Windows.Forms.MessageBox]::Show("Invalid UNC Path", "Error");
+	}
+	$progressbaroverlay1.Visible = $false
+}
+$labelHttpsgithubcomrmscod_Click={
+}
+
+$button5_Click={
+		$progressbaroverlay1.Visible = $true
+		$dirlist = $textbox8.Text
+		try
+		{
+			Load-ListBox -ListBox $checkedlistbox4 (gci $dirlist)
+		}
+		catch
+		{
+			[System.Windows.Forms.MessageBox]::Show("Invalid Drive Letter", "Error");
+		}
+		$progressbaroverlay1.Visible = $false
+}
+
+$button6_Click={
+	$progressbaroverlay1.Visible = $true
+	$dirlist = $textbox8.Text
+	try
+	{
+		Load-ListBox -ListBox $checkedlistbox4 (gci $dirlist)
+	}
+	catch
+	{
+		[System.Windows.Forms.MessageBox]::Show("Invalid UNC Path", "Error");
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonTagFolders_Click = {
+	$foldselect = $checkedlistbox4.CheckedItems
+	$txtbx = $textbox8.Text
+	$dset = $textbox3.Text
+	$progressbaroverlay1.Visible = $true
+	
+	if ($checkboxConfidential.Checked)
+	{
+		foreach ($fol in $foldselect)
+		{
+			$rule = new-object System.Security.AccessControl.FileSystemAccessRule("$dset\Confidential", "Read", "Allow")
+			$acl = get-acl -path $fol
+			$acl.SetAccessRule($rule)
+			set-acl -path $fol -AclObject $acl
+		}
+		
+	}
+	elseif ($checkboxPrivate.Checked)
+	{
+		foreach ($fol in $foldselect)
+		{
+			$rule = new-object System.Security.AccessControl.FileSystemAccessRule("$dset\Private", "Read", "Allow")
+			$acl = get-acl -path $fol
+			$acl.SetAccessRule($rule)
+			set-acl -path $fol -AclObject $acl
+		}
+		
+	}
+	elseif ($checkboxTopSecret.Checked)
+	{
+		foreach ($fol in $foldselect)
+		{
+			$rule = new-object System.Security.AccessControl.FileSystemAccessRule("$dset\Top Secret", "Read", "Allow")
+			$acl = get-acl -path $fol
+			$acl.SetAccessRule($rule)
+			set-acl -path $fol -AclObject $acl
+		}
+		
+	}
+	$progressbaroverlay1.Visible = $false
+}
+
+$buttonScanInsideSelected_Click={
+	$progressbaroverlay1.Visible = $true
+	$foldselect = $checkedlistbox4.CheckedItems
+	$txtbx = $textbox8.Text
+	
+	if ($checkedlistbox4.CheckedItems.Count -gt 1)
+	{
+		[System.Windows.Forms.MessageBox]::Show("Select one path only", "Error");
+	}
+	else
+	{
+			$path = (gci $txtbx\$foldselect -directory -Recurse).FullName
+			Load-ListBox -ListBox $checkedlistbox4 ($path)
+	}
+	$progressbaroverlay1.Visible = $false
+}
+$checkboxTopSecret_CheckedChanged={
+}
+
+$checkboxConfidential_CheckedChanged={
+}
+$buttonSearch_Click = {
+	$dl = $textbox12.Text
+	$usersearch = $textbox9.Text
+	$gci2 = (Get-ChildItem $dl -ea SilentlyContinue | Get-ACL | select Path -ExpandProperty Access | Select Path, FileSystemRights, IdentityReference)
+	$memtab = (Get-ADPrincipalGroupMembership $usersearch | Select Name).Name
+	$shee = foreach ($line in $gci2){ if ($line.IdentityReference -like "*$usersearch*" -or $line.IdentityReference -like "*Everyone*") { Write-Output $line } } 
+	$richtextbox3.Text = $shee | Sort Path -unique | ForEach-Object { $_.Path = ($_.Path) -replace {Microsoft.PowerShell.Core\\FileSystem::}; $_ } | ft -Property Path, FileSystemRights, IdentityReference -AutoSize | Out-String
+}
+
+$buttonSamaccountSearch_Click={
+	$usernamesam = $textbox11.Text
+	$richtextbox4.Text = (Get-ADUser -filter * | Where { $_.Name -like "$usernamesam*" } | Select Name, samaccountName | fl | Out-String)
+}
+
+$checkedlistbox4_SelectedIndexChanged={
+	#TODO: Place custom script here
+	
+}
