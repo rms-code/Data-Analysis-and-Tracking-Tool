@@ -58,7 +58,7 @@ Information in export: Folder Name, CreationTime, LastWrite, Owner, User Exists/
 
 --------------------------------------------------------------------------
 ![image](https://i.imgur.com/gwRNR6l.jpg)
-![image](https://imgur.com/a/NbCxaho)
+![image](https://i.imgur.com/NbCxaho.jpg)
 ![image](https://i.imgur.com/tEMrJYZ.jpg)
 ![image](https://i.imgur.com/6ESgCSe.jpg)
 ![image](https://i.imgur.com/T2B9KOC.jpg)
