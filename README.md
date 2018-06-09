@@ -4,7 +4,7 @@ This was a tool a wrote to do some data analysis of folders, open shares, simple
 
 Powershell Studio is needed to compile this, the .txt is just the raw code.
 
-# Screen shots at the bottom, this is just running on my laptop so no domain joined, you get alot more info(and scanning) from domain obviously, you can pull AD groups and scan OU's with servers etc.
+### Screen shots at the bottom, this is just running on my laptop so no domain joined, you get alot more info(and scanning) from domain obviously, you can pull AD groups and scan OU's with servers etc.
 
 
 ---------------------------------------------------------------------------------------------------------------------------------
