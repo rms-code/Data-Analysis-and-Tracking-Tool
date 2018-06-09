@@ -2,7 +2,7 @@
 
 This was a tool a wrote to do some data analysis of folders, open shares, simple data classification tagging.
 
-.psf is the Powershell Studio project code where you can compile it, the .txt is just the raw code.
+Powershell Studio is needed to compile this, the .txt is just the raw code.
 
 
 
