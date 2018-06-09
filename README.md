@@ -57,4 +57,4 @@ Recursively search selected folders for all files, export gives information to f
 Information in export: Folder Name, CreationTime, LastWrite, Owner, User Exists/Not, Group Exists/Not, Age of file(days)
 
 --------------------------------------------------------------------------
-https://i.imgur.com/gwRNR6l.jpg
+![image](https://i.imgur.com/gwRNR6l.jpg)
