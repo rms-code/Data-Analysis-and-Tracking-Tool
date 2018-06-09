@@ -55,3 +55,6 @@ File Analysis:
 Recursively search selected folders for all files, export gives information to files ONLY.
 
 Information in export: Folder Name, CreationTime, LastWrite, Owner, User Exists/Not, Group Exists/Not, Age of file(days)
+
+--------------------------------------------------------------------------
+https://i.imgur.com/gwRNR6l.jpg
