@@ -25,7 +25,8 @@ This possible could also be used to find everything group on shares/folders, or 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 Classifications:
-Empty groups in active directory used as 'tagging' for classifying folders. ##### Make sure you make the below groups in AD!
+Empty groups in active directory used as 'tagging' for classifying folders. 
+##### Make sure you make the below groups in AD!
 
 
 Current Default Classification Groups:
